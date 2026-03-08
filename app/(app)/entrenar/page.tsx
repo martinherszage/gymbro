@@ -100,14 +100,15 @@ export default function EntrenarPage() {
         .insert({
           user_id: user.id,
           started_at: activeWorkout.startedAt.toISOString(),
-          completed_at: new Date().toISOString(),
-          total_volume: totalVolume,
-          points_earned: pointsEarned,
+          ended_at: new Date().toISOString(),
         })
         .select()
         .single()
 
-      if (workoutError) throw workoutError
+      if (workoutError) {
+        console.error('Error creating workout:', workoutError)
+        throw workoutError
+      }
 
       // Create sets
       const setsToInsert = completedSets.map((s) => ({
@@ -115,33 +116,23 @@ export default function EntrenarPage() {
         exercise_id: s.exercise.id,
         set_number: s.setNumber,
         reps: s.reps!,
-        weight: s.weight!,
-        is_warmup: s.isWarmup,
+        weight_kg: s.weight!,
       }))
 
       const { error: setsError } = await supabase
         .from('workout_sets')
         .insert(setsToInsert)
 
-      if (setsError) throw setsError
-
-      // Update user points
-      await supabase.rpc('increment_points', { 
-        user_id: user.id, 
-        points: pointsEarned 
-      }).catch(() => {
-        // RPC might not exist, try direct update
-        supabase
-          .from('profiles')
-          .update({ total_points: supabase.rpc('add', { a: 'total_points', b: pointsEarned }) })
-          .eq('id', user.id)
-      })
+      if (setsError) {
+        console.error('Error creating sets:', setsError)
+        throw setsError
+      }
 
       clearWorkout()
       router.push('/dashboard')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving workout:', error)
-      alert('Error al guardar el entrenamiento')
+      alert(`Error al guardar el entrenamiento: ${error.message || 'Error desconocido'}`)
     } finally {
       setSaving(false)
       setShowFinishDialog(false)

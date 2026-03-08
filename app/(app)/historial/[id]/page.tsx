@@ -59,15 +59,23 @@ export default async function WorkoutDetailPage({
     })
   }
 
-  const getDuration = (started: string, completed: string) => {
+  const getDuration = (started: string, ended: string) => {
     const start = new Date(started)
-    const end = new Date(completed)
+    const end = new Date(ended)
     const diff = Math.floor((end.getTime() - start.getTime()) / 1000 / 60)
     if (diff < 60) return `${diff} minutos`
     const hours = Math.floor(diff / 60)
     const mins = diff % 60
     return `${hours}h ${mins}m`
   }
+
+  const calculateTotalVolume = (sets: any[]) => {
+    return sets?.reduce((sum, set) => {
+      return sum + ((set.reps || 0) * (set.weight_kg || 0))
+    }, 0) || 0
+  }
+
+  const totalVolume = calculateTotalVolume(workout.workout_sets || [])
 
   // Group sets by exercise
   const exerciseGroups = workout.workout_sets?.reduce((groups: Record<string, typeof workout.workout_sets>, set: { exercises: { id: string; name: string; muscle_group: string } | null }) => {
@@ -90,8 +98,8 @@ export default async function WorkoutDetailPage({
           </Link>
         </Button>
         <div>
-          <h1 className="text-xl font-bold capitalize">{formatDate(workout.completed_at!)}</h1>
-          <p className="text-sm text-muted-foreground">{formatTime(workout.completed_at!)}</p>
+          <h1 className="text-xl font-bold capitalize">{formatDate(workout.ended_at!)}</h1>
+          <p className="text-sm text-muted-foreground">{formatTime(workout.ended_at!)}</p>
         </div>
       </div>
 
@@ -104,7 +112,7 @@ export default async function WorkoutDetailPage({
             </div>
             <div>
               <p className="text-lg font-bold">
-                {getDuration(workout.started_at, workout.completed_at!)}
+                {getDuration(workout.started_at, workout.ended_at!)}
               </p>
               <p className="text-xs text-muted-foreground">Duración</p>
             </div>
@@ -129,7 +137,7 @@ export default async function WorkoutDetailPage({
               <TrendingUp className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-lg font-bold">{workout.total_volume.toLocaleString()} kg</p>
+              <p className="text-lg font-bold">{totalVolume.toLocaleString()} kg</p>
               <p className="text-xs text-muted-foreground">Volumen total</p>
             </div>
           </CardContent>
@@ -138,11 +146,11 @@ export default async function WorkoutDetailPage({
         <Card className="bg-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
-              <Trophy className="h-5 w-5 text-primary" />
+              <Dumbbell className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-lg font-bold">+{workout.points_earned}</p>
-              <p className="text-xs text-muted-foreground">Puntos</p>
+              <p className="text-lg font-bold">{Object.keys(exerciseGroups).length}</p>
+              <p className="text-xs text-muted-foreground">Ejercicios</p>
             </div>
           </CardContent>
         </Card>
@@ -169,15 +177,15 @@ export default async function WorkoutDetailPage({
                       <span className="text-center">Peso</span>
                       <span className="text-right">Reps</span>
                     </div>
-                    {(sets as Array<{ set_number: number; weight: number; reps: number; is_warmup: boolean }>).map((set, index) => (
-                      <div 
-                        key={index} 
+                    {(sets as Array<{ set_number: number; weight_kg: number; reps: number }>).map((set, index) => (
+                      <div
+                        key={index}
                         className="grid grid-cols-3 py-2 px-1 rounded bg-secondary/50"
                       >
                         <span className="text-sm font-medium">
-                          {set.is_warmup ? 'C' : set.set_number}
+                          {set.set_number}
                         </span>
-                        <span className="text-sm text-center">{set.weight} kg</span>
+                        <span className="text-sm text-center">{set.weight_kg} kg</span>
                         <span className="text-sm text-right">{set.reps}</span>
                       </div>
                     ))}

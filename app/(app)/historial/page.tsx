@@ -6,26 +6,24 @@ import Link from 'next/link'
 
 async function getWorkouts(userId: string) {
   const supabase = await createClient()
-  
+
   const { data } = await supabase
     .from('workouts')
     .select(`
       id,
       started_at,
-      completed_at,
-      total_volume,
-      points_earned,
+      ended_at,
       notes,
       workout_sets (
         id,
         reps,
-        weight,
+        weight_kg,
         exercises (name, muscle_group)
       )
     `)
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false })
+    .not('ended_at', 'is', null)
+    .order('ended_at', { ascending: false })
 
   return data || []
 }
@@ -55,16 +53,22 @@ export default async function HistorialPage() {
     })
   }
 
-  const getDuration = (started: string, completed: string) => {
+  const getDuration = (started: string, ended: string) => {
     const start = new Date(started)
-    const end = new Date(completed)
+    const end = new Date(ended)
     const diff = Math.floor((end.getTime() - start.getTime()) / 1000 / 60)
     return `${diff} min`
   }
 
+  const calculateTotalVolume = (sets: any[]) => {
+    return sets?.reduce((sum, set) => {
+      return sum + ((set.reps || 0) * (set.weight_kg || 0))
+    }, 0) || 0
+  }
+
   // Group workouts by date
   const groupedWorkouts = workouts.reduce((groups, workout) => {
-    const date = new Date(workout.completed_at!).toDateString()
+    const date = new Date(workout.ended_at!).toDateString()
     if (!groups[date]) {
       groups[date] = []
     }
@@ -96,22 +100,23 @@ export default async function HistorialPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <h2 className="text-sm font-medium text-muted-foreground capitalize">
-                  {formatDate(dateWorkouts[0].completed_at!)}
+                  {formatDate(dateWorkouts[0].ended_at!)}
                 </h2>
               </div>
               <div className="space-y-2">
                 {dateWorkouts.map((workout) => {
                   const exercises = [...new Set(
-                    workout.workout_sets?.map((s: { exercises: { name: string } | null }) => 
+                    workout.workout_sets?.map((s: { exercises: { name: string } | null }) =>
                       s.exercises?.name
                     ).filter(Boolean)
                   )]
                   const muscleGroups = [...new Set(
-                    workout.workout_sets?.map((s: { exercises: { muscle_group: string } | null }) => 
+                    workout.workout_sets?.map((s: { exercises: { muscle_group: string } | null }) =>
                       s.exercises?.muscle_group
                     ).filter(Boolean)
                   )]
-                  
+                  const totalVolume = calculateTotalVolume(workout.workout_sets || [])
+
                   return (
                     <Link key={workout.id} href={`/historial/${workout.id}`}>
                       <Card className="bg-card hover:bg-secondary/50 transition-colors">
@@ -120,10 +125,10 @@ export default async function HistorialPage() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
                                 <p className="font-semibold text-foreground">
-                                  {formatTime(workout.completed_at!)}
+                                  {formatTime(workout.ended_at!)}
                                 </p>
                                 <span className="text-xs text-muted-foreground">
-                                  {getDuration(workout.started_at, workout.completed_at!)}
+                                  {getDuration(workout.started_at, workout.ended_at!)}
                                 </span>
                               </div>
                               <p className="text-sm text-muted-foreground truncate">
@@ -137,7 +142,7 @@ export default async function HistorialPage() {
                             <div className="flex items-center gap-3">
                               <div className="text-right">
                                 <p className="font-semibold text-primary">
-                                  {workout.total_volume.toLocaleString()} kg
+                                  {totalVolume.toLocaleString()} kg
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {workout.workout_sets?.length} series

@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Dumbbell, History, BookOpen, User } from 'lucide-react'
+import { Home, Dumbbell, History, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MenuSheet } from './menu-sheet'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Inicio' },
   { href: '/entrenar', icon: Dumbbell, label: 'Entrenar' },
+  { href: '/gymbros', icon: Users, label: 'Gymbros' },
   { href: '/historial', icon: History, label: 'Historial' },
-  { href: '/ejercicios', icon: BookOpen, label: 'Ejercicios' },
-  { href: '/perfil', icon: User, label: 'Perfil' },
 ]
 
 export function BottomNav() {
@@ -27,8 +27,8 @@ export function BottomNav() {
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 px-3 py-2 min-w-[64px] rounded-lg transition-colors',
-                isActive 
-                  ? 'text-primary' 
+                isActive
+                  ? 'text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -37,6 +37,7 @@ export function BottomNav() {
             </Link>
           )
         })}
+        <MenuSheet />
       </div>
     </nav>
   )

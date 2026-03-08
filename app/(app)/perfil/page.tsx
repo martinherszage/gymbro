@@ -75,13 +75,28 @@ export default function PerfilPage() {
     // Get stats
     const { data: workouts } = await supabase
       .from('workouts')
-      .select('total_volume, workout_sets(id)')
+      .select(`
+        id,
+        workout_sets (
+          id,
+          reps,
+          weight_kg
+        )
+      `)
       .eq('user_id', user.id)
-      .not('completed_at', 'is', null)
+      .not('ended_at', 'is', null)
 
     const totalWorkouts = workouts?.length || 0
-    const totalVolume = workouts?.reduce((sum, w) => sum + (w.total_volume || 0), 0) || 0
-    const totalSets = workouts?.reduce((sum, w) => sum + (w.workout_sets?.length || 0), 0) || 0
+
+    let totalVolume = 0
+    let totalSets = 0
+
+    workouts?.forEach((workout: any) => {
+      totalSets += workout.workout_sets?.length || 0
+      workout.workout_sets?.forEach((set: any) => {
+        totalVolume += (set.reps || 0) * (set.weight_kg || 0)
+      })
+    })
 
     setStats({
       totalWorkouts,

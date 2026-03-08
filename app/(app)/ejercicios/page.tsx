@@ -58,7 +58,7 @@ export default function EjerciciosPage() {
     const { data, error } = await supabase
       .from('exercises')
       .select('*')
-      .or(`is_custom.eq.false,created_by.eq.${user?.id}`)
+      .or(`is_custom.eq.false,user_id.eq.${user?.id}`)
       .order('muscle_group')
       .order('name')
 
@@ -83,7 +83,7 @@ export default function EjerciciosPage() {
         name: newExercise.name,
         muscle_group: newExercise.muscle_group,
         is_custom: true,
-        created_by: user.id,
+        user_id: user.id,
       })
       .select()
       .single()

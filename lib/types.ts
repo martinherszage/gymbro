@@ -12,7 +12,7 @@ export interface Exercise {
   name: string
   muscle_group: string
   is_custom: boolean
-  created_by: string | null
+  user_id: string | null
   created_at: string
 }
 

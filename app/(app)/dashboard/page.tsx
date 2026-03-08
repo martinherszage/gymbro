@@ -6,22 +6,33 @@ import Link from 'next/link'
 
 async function getStats(userId: string) {
   const supabase = await createClient()
-  
+
   // Get total workouts
   const { count: totalWorkouts } = await supabase
     .from('workouts')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
+    .not('ended_at', 'is', null)
 
-  // Get total volume
-  const { data: volumeData } = await supabase
+  // Get total volume from workout_sets
+  const { data: workoutsData } = await supabase
     .from('workouts')
-    .select('total_volume')
+    .select(`
+      id,
+      workout_sets (
+        reps,
+        weight_kg
+      )
+    `)
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-  
-  const totalVolume = volumeData?.reduce((sum, w) => sum + (w.total_volume || 0), 0) || 0
+    .not('ended_at', 'is', null)
+
+  const totalVolume = workoutsData?.reduce((sum, workout) => {
+    const workoutVolume = workout.workout_sets?.reduce((setSum: number, set: any) => {
+      return setSum + ((set.reps || 0) * (set.weight_kg || 0))
+    }, 0) || 0
+    return sum + workoutVolume
+  }, 0) || 0
 
   // Get this week's workouts
   const startOfWeek = new Date()
@@ -32,13 +43,13 @@ async function getStats(userId: string) {
     .from('workouts')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-    .gte('completed_at', startOfWeek.toISOString())
+    .not('ended_at', 'is', null)
+    .gte('ended_at', startOfWeek.toISOString())
 
-  // Get profile for points
+  // Get profile
   const { data: profile } = await supabase
     .from('profiles')
-    .select('total_points, display_name')
+    .select('display_name')
     .eq('id', userId)
     .single()
 
@@ -46,30 +57,29 @@ async function getStats(userId: string) {
     totalWorkouts: totalWorkouts || 0,
     totalVolume: Math.round(totalVolume),
     weekWorkouts: weekWorkouts || 0,
-    totalPoints: profile?.total_points || 0,
     displayName: profile?.display_name || 'Atleta',
   }
 }
 
 async function getRecentWorkouts(userId: string) {
   const supabase = await createClient()
-  
+
   const { data } = await supabase
     .from('workouts')
     .select(`
       id,
       started_at,
-      completed_at,
-      total_volume,
-      points_earned,
+      ended_at,
       workout_sets (
         id,
+        reps,
+        weight_kg,
         exercises (name)
       )
     `)
     .eq('user_id', userId)
-    .not('completed_at', 'is', null)
-    .order('completed_at', { ascending: false })
+    .not('ended_at', 'is', null)
+    .order('ended_at', { ascending: false })
     .limit(3)
 
   return data || []
@@ -169,7 +179,7 @@ export default async function DashboardPage() {
                 <Trophy className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalPoints}</p>
+                <p className="text-2xl font-bold">{stats.totalWorkouts * 10}</p>
                 <p className="text-xs text-muted-foreground">Puntos</p>
               </div>
             </div>
@@ -204,6 +214,9 @@ export default async function DashboardPage() {
               const exercises = [...new Set(
                 workout.workout_sets?.map((s: { exercises: { name: string } | null }) => s.exercises?.name).filter(Boolean)
               )]
+              const workoutVolume = workout.workout_sets?.reduce((sum: number, set: any) => {
+                return sum + ((set.reps || 0) * (set.weight_kg || 0))
+              }, 0) || 0
               return (
                 <Link key={workout.id} href={`/historial/${workout.id}`}>
                   <Card className="bg-card hover:bg-secondary/50 transition-colors">
@@ -211,7 +224,7 @@ export default async function DashboardPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-foreground">
-                            {formatDate(workout.completed_at!)}
+                            {formatDate(workout.ended_at!)}
                           </p>
                           <p className="text-sm text-muted-foreground truncate max-w-[200px]">
                             {exercises.slice(0, 2).join(', ')}
@@ -220,10 +233,10 @@ export default async function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-primary">
-                            {formatVolume(workout.total_volume)} kg
+                            {formatVolume(workoutVolume)} kg
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            +{workout.points_earned} pts
+                            {workout.workout_sets?.length || 0} series
                           </p>
                         </div>
                       </div>
